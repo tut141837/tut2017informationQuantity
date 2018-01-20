@@ -1,61 +1,191 @@
-package s4.b141837; // Please modify to s4.Bnnnnnn, where nnnnnn is your student ID. 
-import java.lang.*;
-import s4.specification.*;
+public class Frequencer {
+  byte [] myTarget;
+  byte [] mySpace;
+  boolean targetReady = false;
+  boolean spaceReady = false;
 
-/*
-interface FrequencerInterface {     // This interface provides the design for frequency counter.
-    void setTarget(byte[]  target); // set the data to search.
-    void setSpace(byte[]  space);  // set the data to be searched target from.
-    int frequency(); //It return -1, when TARGET is not set or TARGET's length is zero
-                    //Otherwise, it return 0, when SPACE is not set or Space's length is zero
-                    //Otherwise, get the frequency of TAGET in SPACE
-    int subByteFrequency(int start, int end);
-    // get the frequency of subByte of taget, i.e target[start], taget[start+1], ... , target[end-1].
-    // For the incorrect value of START or END, the behavior is undefined.
-*/
+  int [] suffixArray;
 
+  // 変数 "suffixArray"は、mySpaceのsuffixがソートされた配列です。
+  // 各suffixは、mySpaceの開始位置である整数で表されます。
+  // suffixArrayを出力するコードは次のとおりです。
+  private void printSuffixArray() {
+    if(spaceReady) {
+      for(int i = 0; i < mySpace.length; i++) {
+        int s = suffixArray[i];
+        for(int j = s; j < mySpace.length; j++) {
+          System.out.write(mySpace[j]);
+        }
+          System.out.write('\n');
+      }
+    }
+  }
 
-public class Frequencer implements FrequencerInterface{
-    // Code to Test, *warning: This code  contains intentional problem*
-    byte [] myTarget;
-    byte [] mySpace;
-    public void setTarget(byte [] target) { myTarget = target;}
-    public void setSpace(byte []space) { mySpace = space; }
-    public int frequency() {
-	int targetLength = myTarget.length;
-	int spaceLength = mySpace.length;
-	int count = 0;
-	for(int start = 0; start<spaceLength; start++) { // Is it OK?
-	    boolean abort = false;
-	    for(int i = 0; i<targetLength; i++) {
-		if(myTarget[i] != mySpace[start+i]) { abort = true; break; }
-	    }
-	    if(abort == false) { count++; }
-	}
-	return count;
+  private int suffixCompare(int i, int j) {
+    // 2つのsuffixを辞書順で比較する。
+    // i、jはsuffix_i、suffix_jを示す。
+
+    // suffixArrayの作成に使用する。
+    // <辞書順の例>
+    // "i"    < "o"       : コードで比較する
+    // "Hi"   < "Ho "     ; headが同じなら、次の要素を比較する
+    // "Ho"   < "Ho "     ; suffixが同一であれば、長い文字列が大きい
+
+    byte [] submySpace_i = java.util.Arrays.copyOfRange(mySpace, suffixArray[i], mySpace.length);
+    byte [] submySpace_j = java.util.Arrays.copyOfRange(mySpace, suffixArray[j], mySpace.length);
+
+    for(int a = 0; a < mySpace.length - i && a < mySpace.length - j; a++){
+      if(submySpace_i[a] > submySpace_j[a]) return 1;
+      else if(submySpace_i[a] < submySpace_j[a]) return -1;
     }
 
-    // I know that here is a potential problem in the declaration.
-    public int subByteFrequency(int start, int length) { 
-	// Not yet, but it is not currently used by anyone.
-	return -1;
+    if(i < j) return 1;
+    if(i > j) return -1;
+    return 0;
+
+  }
+
+  public void setSpace(byte []space) {
+    mySpace = space;
+    if(mySpace.length > 0) spaceReady = true;
+    suffixArray = new int[space.length];
+
+
+    for(int i = 0; i< space.length; i++) {
+      suffixArray[i] = i;
     }
 
-    public static void main(String[] args) {
-	Frequencer myObject;
-	int freq;
-	try {
-	    System.out.println("checking my Frequencer");
-	    myObject = new Frequencer();
-	    myObject.setSpace("Hi Ho Hi Ho".getBytes());
-	    myObject.setTarget("H".getBytes());
-	    freq = myObject.frequency();
-	    System.out.print("\"H\" in \"Hi Ho Hi Ho\" appears "+freq+" times. ");
-	    if(4 == freq) { System.out.println("OK"); } else {System.out.println("WRONG"); }
-	}
-	catch(Exception e) {
-	    System.out.println("Exception occurred: STOP");
-	}
+
+    //バブルソート
+    int temp;
+    for(int i = 0; i < space.length - 1; i++){
+      for(int j = i + 1; j < space.length; j++){
+        if(suffixCompare(i,j) == 1){
+          temp = suffixArray[i];
+          suffixArray[i] = suffixArray[j];
+          suffixArray[j] = temp;
+        }
+      }
     }
-}	    
-	    
+    printSuffixArray(); // テスト用
+
+    /*
+    <"Hi Ho Hi Ho"の例>
+    0: Hi Ho
+    1: Ho
+    2: Ho Hi Ho
+    3:Hi Ho
+    4:Hi Ho Hi Ho
+    5:Ho
+    6:Ho Hi Ho
+    7:i Ho
+    8:i Ho Hi Ho
+    9:o
+    A:o Hi Ho
+    */
+  }
+
+  private int targetCompare(int i, int start, int end) {
+    // suffix_iとtarget_start_endを辞書順で長さの制限付きで比較する。
+
+    // suffixの適切なインデックスを検索するために使用する。
+    // <検索の例>
+    // suffix     target
+    // "o"    >   "i"   // 1
+    // "o"    <   "z"   // -1
+    // "o"    =   "o"   // 0
+    // "o"    <   "oo"  // -1
+    // "Ho"   >   "Hi"  // 1
+    // "Ho"   <   "Hz"  // -1
+    // "Ho"   =   "Ho"  // 0
+    // "Ho"   <   "Ho " // "Ho "はsuffix "Ho"のheadにない
+    // "Ho"   =   "H"   // "H"はsuffix "Ho"のheadにあります
+
+    byte [] submySpace_i = java.util.Arrays.copyOfRange(mySpace, suffixArray[i], mySpace.length);
+
+    if (submySpace_i.length >= myTarget.length) {
+      for (int a = start; a < end; a++) {
+        if (submySpace_i[a] > myTarget[a]) return 1;
+        else if (submySpace_i[a] < myTarget[a]) return -1;
+      }
+      return 0;
+    }
+    else return -1;
+  }
+
+  private int subByteStartIndex(int start, int end) {
+    // subBytes以上の最初のsuffixのインデックスを返す。
+
+    //例
+    // For "Ho", it will return 5 for "Hi Ho Hi Ho".
+    // For "Ho ", it will return 6 for "Hi Ho Hi Ho".
+
+    for (int i = 0; i < mySpace.length; i++) {
+      if (targetCompare(i, start, end) == 0) return i;
+    }
+    return suffixArray.length;
+  }
+
+  private int subByteEndIndex(int start, int end) {
+    // subBytesより大きい最初のsuffixの次のインデックスを返す。
+
+    // 例
+    // For "Ho", it will return 7 for "Hi Ho Hi Ho".
+    // For "Ho ", it will return 7 for "Hi Ho Hi Ho".
+
+    for (int i = 0; i < mySpace.length-1; i++) {
+      if (targetCompare(i, start, end) == 0 && targetCompare(i + 1, start, end) != 0) return i + 1;
+    }
+    /*for (int i = 0; i < mySpace.length; i++){
+      if (targetCompare(i, start, end) == 1) return i;
+    }*/
+       return suffixArray.length;
+  }
+
+  public int subByteFrequency(int start, int end) {
+    // この方法は遅いが、以下のように定義することができる。
+    /*int spaceLength = mySpace.length;
+    int count = 0;
+    for(int offset = 0; offset< spaceLength - (end - start); offset++) {
+      boolean abort = false;
+      for(int i = 0; i< (end - start); i++) {
+        if(myTarget[start+i] != mySpace[offset+i]) { abort = true; break; }
+      }
+      if(abort == false) { count++; }
+    }*/
+
+    int first = subByteStartIndex(start,end);
+    int last1 = subByteEndIndex(start, end);
+
+    // 検査コード
+    /*for(int k=start;k<end;k++) { System.out.write(myTarget[k]); }
+    system.out.printf(": first=%d last1=%d\n", first, last1);
+    */
+    return last1 - first;
+  }
+
+  public void setTarget(byte [] target) {
+    myTarget = target;
+    if(myTarget.length > 0) targetReady = true;
+  }
+
+  public int frequency() {
+    if(targetReady == false) return -1;
+    if(spaceReady == false) return 0;
+    return subByteFrequency(0, myTarget.length);
+  }
+  public static void main(String[] args) { Frequencer frequencerObject;
+    try {
+      frequencerObject = new Frequencer();
+      frequencerObject.setSpace("Hi Ho Hi Ho".getBytes());
+      frequencerObject.setTarget("o Hi Ho".getBytes());
+      int result = frequencerObject.frequency();
+      System.out.print("Freq = " + result + " ");
+      if(4 == result) { System.out.println("OK"); }
+      else {System.out.println("WRONG"); }
+    }
+    catch(Exception e) {
+      System.out.println("STOP");
+    }
+  }
+}
